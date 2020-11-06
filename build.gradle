@@ -109,6 +109,8 @@ dependencies {
 
     dataImplementation sourceSets.main.output
     dataCompileClasspath sourceSets.main.compileClasspath
+
+    configurations.compile.extendsFrom(configurations.shadow)
 }
 
 def commit_id = "unknown"

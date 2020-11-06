@@ -97,13 +97,35 @@ public class Tempdiscordmcchatmod {
 //			}
 			String immediateSource = "";
 			
-			if (event.getSource().getImmediateSource() != null)
-				immediateSource = event.getSource().getImmediateSource().getEntityString().split(":", 2)[1];
+			if (event.getSource().getImmediateSource() != null) {
+				String name = event.getSource().getTrueSource().getName().getUnformattedComponentText();
+				if (!name.equals("")) {
+					immediateSource = name;
+				} else {
+					if (event.getSource().getImmediateSource().getEntityString() != null) {
+						String[] imSrc = event.getSource().getImmediateSource().getEntityString().split(":", 2);
+						immediateSource = imSrc[imSrc.length-1];
+					} else {
+						immediateSource = event.getSource().getImmediateSource().getType().getRegistryName().getPath();
+					}
+				}
+			}
 			
 			String trueSource = "";
 			
-			if (event.getSource().getTrueSource() != null)
-				trueSource = event.getSource().getTrueSource().getEntityString().split(":", 2)[1];
+			if (event.getSource().getTrueSource() != null) {
+				String name = event.getSource().getTrueSource().getName().getUnformattedComponentText();
+				if (!name.equals("")) {
+					trueSource = name;
+				} else {
+					if (event.getSource().getTrueSource().getEntityString() != null) {
+						String[] trSrc = event.getSource().getTrueSource().getEntityString().split(":", 2);
+						immediateSource = trSrc[trSrc.length-1];
+					} else {
+						immediateSource = event.getSource().getTrueSource().getType().getRegistryName().getPath();
+					}
+				}
+			}
 			
 			String type = event.getSource().damageType;
 			

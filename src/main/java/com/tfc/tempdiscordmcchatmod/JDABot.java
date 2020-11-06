@@ -31,6 +31,30 @@ public class JDABot extends ListenerAdapter {
 	private boolean showMOTD;
 	private boolean showIP;
 	private String channelID;
+	private static final PropertiesReader localizationMessages;
+	
+	static {
+		try {
+			File f = new File("localization.properties");
+			if (!f.exists()) {
+				f.createNewFile();
+				FileWriter writer = new FileWriter(f);
+				writer.write("" +
+						"was killed by fall:fell from a high place\n" +
+						"was killed by creeper using explosion.player:was blown up by creeper\n" +
+						"was killed by explosion:blew up\n" +
+						"was killed by cactus:was pricked to death\n" +
+						"was killed by outOfWorld:fell out of the world\n" +
+						"using player:using melee\n" +
+						"was killed by drown:drowned" +
+						"");
+				writer.close();
+			}
+			localizationMessages = new PropertiesReader(f);
+		} catch (Throwable err) {
+			throw new RuntimeException(err);
+		}
+	}
 	
 	public JDABot() throws IOException {
 		File f = new File("chat_bot.properties");
@@ -159,8 +183,8 @@ public class JDABot extends ListenerAdapter {
 				System.out.println(ipRead);
 			} catch (Throwable ignored) {
 			}
-			ip = ipRead;
-			if (!port.equals("")) ip+=":"+port;
+//			ip = ipRead;
+//			if (!port.equals("")) ip+=":"+port;
 		}
 		
 		builder.addField("\u2705 **The server has started!**", "**IP:** " + ip, false);
