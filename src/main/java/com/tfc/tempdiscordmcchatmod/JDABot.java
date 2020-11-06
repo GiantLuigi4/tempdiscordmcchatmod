@@ -147,18 +147,20 @@ public class JDABot extends ListenerAdapter {
 		builder.setColor(new Color(0, 255, 0));
 		String ip = "hidden (or just NYI)";
 		
-		String ipRead;
-		String port;
-		try {
-			PropertiesReader serverProperties = new PropertiesReader(new File("server.properties"));
-			port = serverProperties.getValue("server-port");
-			ipRead = serverProperties.getValue("server-ip");
-			if (ipRead == null)
-				ipRead = ""+InetAddress.getLocalHost().getHostName();
-			if (ipRead == null || ipRead.equals(""))
-				ipRead = ""+InetAddress.getLocalHost().getHostAddress();
-			System.out.println(ipRead);
-		} catch (Throwable ignored) {
+		if (showIP) {
+			String ipRead="";
+			String port="";
+			try {
+				PropertiesReader serverProperties = new PropertiesReader(new File("server.properties"));
+				port = serverProperties.getValue("server-port");
+				ipRead = serverProperties.getValue("server-ip");
+				if (ipRead == null || ipRead.equals("")) ipRead = ""+InetAddress.getLocalHost().getHostName();
+				if (ipRead.equals("")) ipRead = ""+InetAddress.getLocalHost().getHostAddress();
+				System.out.println(ipRead);
+			} catch (Throwable ignored) {
+			}
+			ip = ipRead;
+			if (!port.equals("")) ip+=":"+port;
 		}
 		
 		builder.addField("\u2705 **The server has started!**", "**IP:** " + ip, false);
