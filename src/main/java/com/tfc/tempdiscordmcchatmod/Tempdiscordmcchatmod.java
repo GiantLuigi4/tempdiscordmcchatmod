@@ -1,5 +1,6 @@
 package com.tfc.tempdiscordmcchatmod;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.MinecraftForge;
@@ -95,41 +96,85 @@ public class Tempdiscordmcchatmod {
 //				}
 //			}
 			String immediateSource = "";
-
+			
 			if (event.getSource().getImmediateSource() != null)
-				immediateSource = event.getSource().getImmediateSource().getEntityString();
-
+				immediateSource = event.getSource().getImmediateSource().getEntityString().split(":", 2)[1];
+			
 			String trueSource = "";
-
+			
 			if (event.getSource().getTrueSource() != null)
-				trueSource = event.getSource().getTrueSource().getEntityString();
-
+				trueSource = event.getSource().getTrueSource().getEntityString().split(":", 2)[1];
+			
 			String type = event.getSource().damageType;
 			
 			String playerName = event.getEntityLiving().getName().getUnformattedComponentText();
 			
-			if (immediateSource.equals("") && trueSource.equals("")) {
-				bot.sendMessage(playerName + " was killed by " + type);
-			} else if (!trueSource.equals("")){
-				if (immediateSource.equals("")) {
-					if (type.equals("mob")) {
-						bot.sendMessage(playerName + " was killed by " + trueSource);
+			try {
+				if (immediateSource.equals("") && trueSource.equals("")) {
+					bot.sendAsEmbedWithTitleInSeed(
+							getSeed(event.getEntity()),
+							playerName + " was killed by " + type,
+							getIcon((PlayerEntity) event.getEntity()),
+							true
+					);
+				} else if (!trueSource.equals("")) {
+					if (immediateSource.equals("") || immediateSource.equals(trueSource)) {
+						if (type.equals("mob")) {
+							bot.sendAsEmbedWithTitleInSeed(
+									getSeed(event.getEntity()),
+									playerName + " was killed by " + trueSource,
+									getIcon((PlayerEntity) event.getEntity()),
+									true
+							);
+						} else {
+							bot.sendAsEmbedWithTitleInSeed(
+									getSeed(event.getEntity()),
+									playerName + " was killed by " + trueSource + " using " + type,
+									getIcon((PlayerEntity) event.getEntity()),
+									true
+							);
+						}
 					} else {
-						bot.sendMessage(playerName + " was killed by " + trueSource + " using " + type);
+						if (type.equals("mob")) {
+							bot.sendAsEmbedWithTitleInSeed(
+									getSeed(event.getEntity()),
+									playerName + " was killed by " + trueSource + " using " + immediateSource,
+									getIcon((PlayerEntity) event.getEntity()),
+									true
+							);
+						} else {
+							bot.sendAsEmbedWithTitleInSeed(
+									getSeed(event.getEntity()),
+									playerName + " was killed by " + trueSource + " using " + immediateSource + " using " + type,
+									getIcon((PlayerEntity) event.getEntity()),
+									true
+							);
+						}
 					}
-				} else {
+				} else if (!immediateSource.equals("")) {
 					if (type.equals("mob")) {
-						bot.sendMessage(playerName + " was killed by " + trueSource + " using " + immediateSource);
+						bot.sendAsEmbedWithTitleInSeed(
+								getSeed(event.getEntity()),
+								playerName + " was killed by " + immediateSource,
+								getIcon((PlayerEntity) event.getEntity()),
+								true
+						);
 					} else {
-						bot.sendMessage(playerName + " was killed by " + trueSource + " using " + immediateSource + " using " + type);
+						bot.sendAsEmbedWithTitleInSeed(
+								getSeed(event.getEntity()),
+								playerName + " was killed by " + immediateSource + " using " + type,
+								getIcon((PlayerEntity) event.getEntity()),
+								true
+						);
 					}
 				}
-			} else if (!immediateSource.equals("")){
-				if (type.equals("mob")) {
-					bot.sendMessage(playerName + " was killed by " + immediateSource);
-				} else {
-					bot.sendMessage(playerName + " was killed by " + immediateSource + " using " + type);
-				}
+			} catch (Throwable ignored) {
+				bot.sendAsEmbedWithTitleInSeed(
+						getSeed(event.getEntity()),
+						playerName + " died.",
+						getIcon((PlayerEntity) event.getEntity()),
+						true
+				);
 			}
 		}
 	}
@@ -146,9 +191,9 @@ public class Tempdiscordmcchatmod {
 		String name = event.getEntity().getName().getUnformattedComponentText();
 		
 		bot.sendAsEmbed(
-				event.getEntity().getUniqueID().toString(),
+				getSeed(event.getEntity()),
 				name + " has joined the game!",
-				"https://crafatar.com/avatars/"+event.getEntity().getUniqueID().toString().replace("-","")+"?size=128&default=MHF_Steve&overlay",
+				getIcon(event.getPlayer()),
 				true
 		);
 	}
@@ -157,10 +202,31 @@ public class Tempdiscordmcchatmod {
 		String name = event.getEntity().getName().getUnformattedComponentText();
 		
 		bot.sendAsEmbed(
-				event.getEntity().getUniqueID().toString(),
+				getSeed(event.getEntity()),
 				name + " has left the game!",
-				"https://crafatar.com/avatars/"+event.getEntity().getUniqueID().toString().replace("-","")+"?size=128&default=MHF_Steve&overlay",
+				getIcon(event.getPlayer()),
 				true
 		);
+	}
+	
+	public static String getSeed(Entity entity) {
+		String str =
+				entity.getType().getRegistryName().toString() +
+						entity.getName().getUnformattedComponentText() +
+						entity.getUniqueID().toString() +
+						entity.getType().getClassification().getString() +
+						entity.getClass().toString();
+		return
+				str +
+						(str.hashCode() * str.hashCode()) + "" +
+						(str.hashCode() * str.length()) + "" +
+						(str.length() * str.length()) + "" +
+						str.length() + "" +
+						str.hashCode()
+				;
+	}
+	
+	public static String getIcon(PlayerEntity entity) {
+		return "https://crafatar.com/avatars/" + entity.getUniqueID().toString().replace("-", "") + "?size=128&default=MHF_Steve&overlay";
 	}
 }

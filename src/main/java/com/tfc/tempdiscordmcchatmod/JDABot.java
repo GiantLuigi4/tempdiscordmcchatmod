@@ -19,6 +19,7 @@ import java.awt.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Objects;
 
@@ -125,10 +126,40 @@ public class JDABot extends ListenerAdapter {
 		channel.sendMessage(builder.build()).complete();
 	}
 	
+	public void sendAsEmbedWithTitleInSeed(String colorSeed, String title, String iconURL, boolean inLine, String... messages) {
+		EmbedBuilder builder = new EmbedBuilder();
+		colorSeed = colorSeed + title;
+		builder.setColor(
+				new Color(
+						((int) Math.abs(colorSeed.length() * 3732.12382f)) % 255,
+						Math.abs(Objects.hash(colorSeed)) % 255,
+						Math.abs(Objects.hash(colorSeed.toLowerCase())) % 255
+				)
+		);
+		builder.setAuthor(title, null, iconURL);
+		for (String message : messages)
+			builder.addField("", message, inLine);
+		channel.sendMessage(builder.build()).complete();
+	}
+	
 	public void sendServerStartMSG(MinecraftServer server) {
 		EmbedBuilder builder = new EmbedBuilder();
 		builder.setColor(new Color(0, 255, 0));
 		String ip = "hidden (or just NYI)";
+		
+		String ipRead;
+		String port;
+		try {
+			PropertiesReader serverProperties = new PropertiesReader(new File("server.properties"));
+			port = serverProperties.getValue("server-port");
+			ipRead = serverProperties.getValue("server-ip");
+			if (ipRead == null)
+				ipRead = ""+InetAddress.getLocalHost().getHostName();
+			if (ipRead == null || ipRead.equals(""))
+				ipRead = ""+InetAddress.getLocalHost().getHostAddress();
+			System.out.println(ipRead);
+		} catch (Throwable ignored) {
+		}
 		
 		builder.addField("\u2705 **The server has started!**", "**IP:** " + ip, false);
 		if (showMOTD)
