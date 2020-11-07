@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.requests.restaction.MessageAction;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.server.MinecraftServer;
@@ -20,8 +21,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class JDABot extends ListenerAdapter {
 	public JDABot bot;
@@ -32,6 +35,23 @@ public class JDABot extends ListenerAdapter {
 	private boolean showIP;
 	private String channelID;
 	private static final PropertiesReader localizationMessages;
+	
+	public static AtomicBoolean isServerStillOn = new AtomicBoolean(true);
+	
+	public static final ArrayList<MessageAction> messagesToSend = new ArrayList<>();
+	
+	public static final Thread sender = new Thread(()->{
+		try {
+			while (isServerStillOn.get()) {
+				if (!messagesToSend.isEmpty()) {
+					messagesToSend.get(0).complete();
+					messagesToSend.remove(0);
+				}
+				Thread.sleep(10);
+			}
+		} catch (Throwable ignored) {
+		}
+	});
 	
 	static {
 		try {
@@ -51,6 +71,7 @@ public class JDABot extends ListenerAdapter {
 				writer.close();
 			}
 			localizationMessages = new PropertiesReader(f);
+			sender.start();
 		} catch (Throwable err) {
 			throw new RuntimeException(err);
 		}
@@ -117,7 +138,7 @@ public class JDABot extends ListenerAdapter {
 	}
 	
 	public void sendMessage(String text) {
-		channel.sendMessage(text).complete();
+		messagesToSend.add(channel.sendMessage(text));
 	}
 	
 	public void sendAsEmbed(String colorSeed, String title, boolean inLine, String... messages) {
@@ -132,7 +153,7 @@ public class JDABot extends ListenerAdapter {
 		builder.addField(title, "", false);
 		for (String message : messages)
 			builder.addField("", message, inLine);
-		channel.sendMessage(builder.build()).complete();
+		messagesToSend.add(channel.sendMessage(builder.build()));
 	}
 	
 	public void sendAsEmbed(String colorSeed, String title, String iconURL, boolean inLine, String... messages) {
@@ -147,7 +168,7 @@ public class JDABot extends ListenerAdapter {
 		builder.setAuthor(title, null, iconURL);
 		for (String message : messages)
 			builder.addField("", message, inLine);
-		channel.sendMessage(builder.build()).complete();
+		messagesToSend.add(channel.sendMessage(builder.build()));
 	}
 	
 	public void sendAsEmbedWithTitleInSeed(String colorSeed, String title, String iconURL, boolean inLine, String... messages) {
@@ -163,7 +184,7 @@ public class JDABot extends ListenerAdapter {
 		builder.setAuthor(title, null, iconURL);
 		for (String message : messages)
 			builder.addField("", message, inLine);
-		channel.sendMessage(builder.build()).complete();
+		messagesToSend.add(channel.sendMessage(builder.build()));
 	}
 	
 	public void sendServerStartMSG(MinecraftServer server) {
@@ -191,7 +212,7 @@ public class JDABot extends ListenerAdapter {
 		if (showMOTD)
 			builder.addField("**MOTD**", server.getMOTD(), true);
 		
-		channel.sendMessage(builder.build()).complete();
+		messagesToSend.add(channel.sendMessage(builder.build()));
 	}
 	
 	@Override

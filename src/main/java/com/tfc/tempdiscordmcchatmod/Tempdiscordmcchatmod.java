@@ -35,11 +35,22 @@ public class Tempdiscordmcchatmod {
 		MinecraftForge.EVENT_BUS.addListener(this::onPlayerDeath);
 		MinecraftForge.EVENT_BUS.addListener(this::loggedOn);
 		MinecraftForge.EVENT_BUS.addListener(this::loggedOff);
+		
+		Runtime.getRuntime().addShutdownHook(new Thread(()->{
+			if (JDABot.sender.isAlive()) {
+				bot.sendMessage("\u2620 Server has crashed!");
+				while (!JDABot.messagesToSend.isEmpty());
+				JDABot.sender.stop();
+				JDABot.isServerStillOn.set(false);
+			}
+		}));
 	}
 	
 	//FMLServerAboutToStartEvent, FMLServerStartingEvent, FMLServerStartedEvent, FMLServerStoppingEvent, FMLServerStoppedEvent
 	
 	private void starting(FMLServerAboutToStartEvent event) {
+		JDABot.isServerStillOn.set(true);
+		
 		try {
 			bot = new JDABot();
 		} catch (Throwable err) {
@@ -203,6 +214,9 @@ public class Tempdiscordmcchatmod {
 	
 	private void stopping(FMLServerStoppingEvent event) {
 		bot.sendMessage("\u274C Server has stopped!");
+		while (!JDABot.messagesToSend.isEmpty());
+		JDABot.sender.stop();
+		JDABot.isServerStillOn.set(false);
 	}
 	
 	private void chat(ServerChatEvent event) {
