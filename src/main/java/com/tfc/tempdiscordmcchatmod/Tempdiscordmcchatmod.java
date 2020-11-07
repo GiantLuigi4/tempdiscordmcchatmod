@@ -11,9 +11,18 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.server.FMLServerAboutToStartEvent;
 import net.minecraftforge.fml.event.server.FMLServerStartedEvent;
+import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod("tempdiscordmcchatmod")
@@ -31,6 +40,7 @@ public class Tempdiscordmcchatmod {
 		MinecraftForge.EVENT_BUS.addListener(this::starting);
 		MinecraftForge.EVENT_BUS.addListener(this::advancementGained);
 		MinecraftForge.EVENT_BUS.addListener(this::stopping);
+		MinecraftForge.EVENT_BUS.addListener(this::stopped);
 		MinecraftForge.EVENT_BUS.addListener(this::chat);
 		MinecraftForge.EVENT_BUS.addListener(this::onPlayerDeath);
 		MinecraftForge.EVENT_BUS.addListener(this::loggedOn);
@@ -39,9 +49,9 @@ public class Tempdiscordmcchatmod {
 		Runtime.getRuntime().addShutdownHook(new Thread(()->{
 			if (JDABot.sender.isAlive()) {
 				bot.sendMessage("\u2620 Server has crashed!");
-				while (!JDABot.messagesToSend.isEmpty());
-				JDABot.sender.stop();
 				JDABot.isServerStillOn.set(false);
+				while (JDABot.sender.isAlive());
+				bot.shutdown();
 			}
 		}));
 	}
@@ -50,6 +60,9 @@ public class Tempdiscordmcchatmod {
 	
 	private void starting(FMLServerAboutToStartEvent event) {
 		JDABot.isServerStillOn.set(true);
+		
+		if (!JDABot.sender.isAlive())
+			JDABot.sender.start();
 		
 		try {
 			bot = new JDABot();
@@ -214,9 +227,18 @@ public class Tempdiscordmcchatmod {
 	
 	private void stopping(FMLServerStoppingEvent event) {
 		bot.sendMessage("\u274C Server has stopped!");
-		while (!JDABot.messagesToSend.isEmpty());
-		JDABot.sender.stop();
 		JDABot.isServerStillOn.set(false);
+		while (JDABot.sender.isAlive());
+		bot.shutdown();
+	}
+	
+	private void stopped(FMLServerStoppedEvent event) {
+		if (JDABot.sender.isAlive()) {
+			bot.sendMessage("\u2620 Server has crashed!");
+			JDABot.isServerStillOn.set(false);
+			while (JDABot.sender.isAlive());
+			bot.shutdown();
+		}
 	}
 	
 	private void chat(ServerChatEvent event) {
@@ -263,6 +285,22 @@ public class Tempdiscordmcchatmod {
 	}
 	
 	public static String getIcon(PlayerEntity entity) {
-		return "https://crafatar.com/avatars/" + entity.getUniqueID().toString().replace("-", "") + "?size=128&default=MHF_Steve&overlay";
+//		return "https://crafatar.com/avatars/" + entity.getUniqueID().toString().replace("-", "") + "?size=128&default=MHF_Steve&overlay";
+		
+		String skin = bot.getAndApplySkinService(entity);
+		
+		if (skin.equals("custom") && false) {
+			try {
+				URL url = new URL("https://minecraft.tools/download-skin/"+entity.getName().getUnformattedComponentText());
+				BufferedImage image = ImageIO.read(url);
+				Image image1 = image.getSubimage(8,8,8,8);
+				return bot.sendImage((BufferedImage)image1);
+			} catch (Throwable ignored) {
+				ignored.printStackTrace();
+			}
+		}
+		
+		System.out.println(skin);
+		return skin;
 	}
 }

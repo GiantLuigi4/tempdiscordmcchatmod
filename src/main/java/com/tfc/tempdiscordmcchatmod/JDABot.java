@@ -2,11 +2,12 @@ package com.tfc.tempdiscordmcchatmod;
 
 import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.restaction.MessageAction;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.IFormattableTextComponent;
@@ -16,7 +17,10 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,6 +28,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class JDABot extends ListenerAdapter {
@@ -35,6 +40,7 @@ public class JDABot extends ListenerAdapter {
 	private boolean showIP;
 	private String channelID;
 	private static final PropertiesReader localizationMessages;
+	private static PropertiesReader serverProperties;
 	
 	public static AtomicBoolean isServerStillOn = new AtomicBoolean(true);
 	
@@ -42,12 +48,15 @@ public class JDABot extends ListenerAdapter {
 	
 	public static final Thread sender = new Thread(()->{
 		try {
-			while (isServerStillOn.get()) {
-				if (!messagesToSend.isEmpty()) {
-					messagesToSend.get(0).complete();
-					messagesToSend.remove(0);
+			while (isServerStillOn.get() || !messagesToSend.isEmpty()) {
+				try {
+					if (!messagesToSend.isEmpty()) {
+						messagesToSend.get(0).complete();
+						messagesToSend.remove(0);
+					}
+					Thread.sleep(10);
+				} catch (Throwable ignored) {
 				}
-				Thread.sleep(10);
 			}
 		} catch (Throwable ignored) {
 		}
@@ -71,6 +80,7 @@ public class JDABot extends ListenerAdapter {
 				writer.close();
 			}
 			localizationMessages = new PropertiesReader(f);
+			sender.setDaemon(true);
 			sender.start();
 		} catch (Throwable err) {
 			throw new RuntimeException(err);
@@ -95,16 +105,16 @@ public class JDABot extends ListenerAdapter {
 			writer.close();
 		}
 		
-		PropertiesReader reader = new PropertiesReader(f);
+		serverProperties = new PropertiesReader(f);
 		
-		showMOTD = Boolean.parseBoolean(reader.getValue("showMOTD"));
-		showMOTD = Boolean.parseBoolean(reader.getValue("showIP"));
+		showMOTD = Boolean.parseBoolean(serverProperties.getValue("showMOTD"));
+		showIP = Boolean.parseBoolean(serverProperties.getValue("showIP"));
 		
-		boolean enabled = Boolean.parseBoolean(reader.getValue("enabled"));
+		boolean enabled = Boolean.parseBoolean(serverProperties.getValue("enabled"));
 		if (!enabled) return;
 		
 		JDABuilder builder = new JDABuilder(AccountType.BOT);
-		String token = reader.getValue("bot_token");
+		String token = serverProperties.getValue("bot_token");
 		
 		builder.setToken(token);
 		builder.setStatus(OnlineStatus.ONLINE);
@@ -126,7 +136,7 @@ public class JDABot extends ListenerAdapter {
 			botBuilt.awaitStatus(JDA.Status.CONNECTED);
 			LOGGER.log(Level.INFO, "Connected.");
 			
-			channelID = reader.getValue("channel");
+			channelID = serverProperties.getValue("channel");
 			channel = botBuilt.getTextChannelById(channelID);
 			
 			LOGGER.log(Level.INFO, "Channel ID to send messages to: " + channelID);
@@ -157,18 +167,22 @@ public class JDABot extends ListenerAdapter {
 	}
 	
 	public void sendAsEmbed(String colorSeed, String title, String iconURL, boolean inLine, String... messages) {
-		EmbedBuilder builder = new EmbedBuilder();
-		builder.setColor(
-				new Color(
-						((int) Math.abs(colorSeed.length() * 3732.12382f)) % 255,
-						Math.abs(Objects.hash(colorSeed)) % 255,
-						Math.abs(Objects.hash(colorSeed.toLowerCase())) % 255
-				)
-		);
-		builder.setAuthor(title, null, iconURL);
-		for (String message : messages)
-			builder.addField("", message, inLine);
-		messagesToSend.add(channel.sendMessage(builder.build()));
+		try {
+			EmbedBuilder builder = new EmbedBuilder();
+			builder.setColor(
+					new Color(
+							((int) Math.abs(colorSeed.length() * 3732.12382f)) % 255,
+							Math.abs(Objects.hash(colorSeed)) % 255,
+							Math.abs(Objects.hash(colorSeed.toLowerCase())) % 255
+					)
+			);
+			builder.setAuthor(title, null, iconURL);
+			for (String message : messages)
+				builder.addField("", message, inLine);
+			messagesToSend.add(channel.sendMessage(builder.build()));
+		} catch (Throwable err) {
+			System.out.println(iconURL);
+		}
 	}
 	
 	public void sendAsEmbedWithTitleInSeed(String colorSeed, String title, String iconURL, boolean inLine, String... messages) {
@@ -190,7 +204,9 @@ public class JDABot extends ListenerAdapter {
 	public void sendServerStartMSG(MinecraftServer server) {
 		EmbedBuilder builder = new EmbedBuilder();
 		builder.setColor(new Color(0, 255, 0));
-		String ip = "hidden (or just NYI)";
+		String ip = "NYI";
+		
+		String val = "";
 		
 		if (showIP) {
 			String ipRead="";
@@ -199,18 +215,23 @@ public class JDABot extends ListenerAdapter {
 				PropertiesReader serverProperties = new PropertiesReader(new File("server.properties"));
 				port = serverProperties.getValue("server-port");
 				ipRead = serverProperties.getValue("server-ip");
-				if (ipRead == null || ipRead.equals("")) ipRead = ""+InetAddress.getLocalHost().getHostName();
+				if (ipRead == null || ipRead.equals("")) ipRead = ""+InetAddress.getLocalHost().getHostAddress();
 				if (ipRead.equals("")) ipRead = ""+InetAddress.getLocalHost().getHostAddress();
-				System.out.println(ipRead);
 			} catch (Throwable ignored) {
 			}
+			System.out.println(ipRead);
 //			ip = ipRead;
 //			if (!port.equals("")) ip+=":"+port;
+			val = "**IP:** " + ip;
 		}
 		
-		builder.addField("\u2705 **The server has started!**", "**IP:** " + ip, false);
-		if (showMOTD)
-			builder.addField("**MOTD**", server.getMOTD(), true);
+		builder.addField("\u2705 **The server has started!**", val, false);
+		try {
+			if (showMOTD)
+				builder.addField("**MOTD**", server.getMOTD(), true);
+		} catch (Throwable ignored) {
+			builder.addField("", "Server is probably not a server, but instead a single player world.", true);
+		}
 		
 		messagesToSend.add(channel.sendMessage(builder.build()));
 	}
@@ -231,5 +252,28 @@ public class JDABot extends ListenerAdapter {
 				}
 			}
 		}
+	}
+	
+	public String getAndApplySkinService(Entity entity) {
+		String skinService = serverProperties.getValue("skinService");
+		skinService = skinService
+				.replace("%randomUUID%",new UUID(System.currentTimeMillis(),System.nanoTime()).toString())
+				.replace("%uuid_noDash%",entity.getUniqueID().toString().replace("-",""))
+				.replace("%uuid%",entity.getUniqueID().toString())
+				.replace("%uname%",entity.getName().getUnformattedComponentText())
+				;
+		return skinService;
+	}
+	
+	public void shutdown() {
+		botBuilt.shutdown();
+	}
+	
+	public String sendImage(BufferedImage img) throws IOException {
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		ImageIO.write(img,"png",output);
+		Message msg = botBuilt.getTextChannelById(serverProperties.getValue("skinDumpChannel")).sendFile(output.toByteArray(),"skin.png").complete();
+//		msg.delete().complete();
+		return msg.getAttachments().get(0).getUrl();
 	}
 }
